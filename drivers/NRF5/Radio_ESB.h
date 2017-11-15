@@ -70,8 +70,8 @@
 #define NRF5_ESB_BC_ARC (3)
 // RX timeout for NRF52 PAN#102 and for _disableRadio
 #define NRF5_ESB_RX_TIMEOUT (1500)
-// Timeout to stop TX (Bughandler, optional)
-//#define NRF5_ESB_TX_BUG_WORKAROUND
+// Timeout to stop TX (Bughandler, optional after testing)
+#define NRF5_ESB_ENABLE_TX_TIMER
 
 // Node address index
 #define NRF5_ESB_NODE_ADDR (0)

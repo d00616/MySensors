@@ -529,7 +529,9 @@ static bool NRF5_ESB_sendMessage(uint8_t recipient, const void *buf, uint8_t len
 	// This isn't requred but if the DISABLED the timer is cleared.
 	NRF5_RADIO_TIMER->CC[2]=NRF5_ESB_ARD<<1;
 
-#ifdef NRF5_ESB_TX_BUG_WORKAROUND
+#ifdef NRF5_ESB_ENABLE_TX_TIMER
+	// Configure the RTC to stop TX after an timeout
+
 	// Reset RTC trigger flag
 	nrf5_rtc_event_triggered = false;
 
@@ -542,8 +544,8 @@ static bool NRF5_ESB_sendMessage(uint8_t recipient, const void *buf, uint8_t len
 
 	// prescaler 0, 30.517 μs resolution -> max 512 s sleep
 	MY_HW_RTC->PRESCALER =  0;
-	// Set CC[0] ~ tx_retries*2*ARD
-	MY_HW_RTC->CC[0] = (tx_retries * NRF5_ESB_ARD *2)/30;
+	// Set CC[0] ~ (tx_retries*2*ARD)µs
+	MY_HW_RTC->CC[0] = (tx_retries * NRF5_ESB_ARD)>>4;
 
 	// Enable timer interrupt
 	MY_HW_RTC->INTENSET = RTC_INTENSET_COMPARE0_Msk;
@@ -564,7 +566,7 @@ static bool NRF5_ESB_sendMessage(uint8_t recipient, const void *buf, uint8_t len
 #endif
 	// Wait for end of transmission
 	while (events_end_tx == false) {
-#ifdef NRF5_ESB_TX_BUG_WORKAROUND
+#ifdef NRF5_ESB_ENABLE_TX_TIMER
 		// Power off CPU until next interrupt
 		hwSleep();
 
@@ -587,7 +589,7 @@ static bool NRF5_ESB_sendMessage(uint8_t recipient, const void *buf, uint8_t len
 	}
 	NRF5_RADIO_DEBUG(PSTR("NRF5:SND:T=%d\n"),nrf5_rtc_event_triggered);
 
-#ifdef NRF5_ESB_TX_BUG_WORKAROUND
+#ifdef NRF5_ESB_ENABLE_TX_TIMER
 	// Stop RTC
 	MY_HW_RTC->INTENCLR = RTC_INTENSET_COMPARE0_Msk;
 	MY_HW_RTC->EVTENCLR = RTC_EVTENSET_COMPARE0_Msk;
@@ -909,7 +911,7 @@ void stRxEnd(void)
 #endif
 	if (radio_buffer_state == NRF5_ESB_BUFFER_STATE_RX) {
 		// RX End
-		// Ignore packages without valid CRC or ACK packages or when rx_buffer is full
+		// Ignore packages without valid CRC or ACK packages (len<=1) or when rx_buffer is full
 		if ((NRF_RADIO->CRCSTATUS != 0) && (radio_buffer.len>1) && (!rx_circular_buffer.full())) {
 			// Send ACK, when addressed to node id (No ACK for BC for reversed NRF24)
 #ifdef MY_NRF5_ESB_STRICT_ACK
